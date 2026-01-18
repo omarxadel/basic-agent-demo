@@ -70,6 +70,14 @@ To use OpenAI's chat models:
 OPENAI_API_KEY=your-api-key
 ```
 
+#### OpenRouter (Qwen3)
+To use OpenRouter's Qwen3 models:
+1. Create an OpenRouter API key: https://openrouter.ai/keys
+2. Add it to your `.env` file:
+```
+OPENROUTER_API_KEY=your-api-key
+```
+
 
 
 
