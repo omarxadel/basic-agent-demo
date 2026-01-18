@@ -4,9 +4,9 @@ Works with a chat model with tool calling support.
 """
 
 from datetime import UTC, datetime
-from typing import Dict, List, Literal, cast
+from typing import Dict, List, Literal, Optional, cast
 
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import ToolNode
 
@@ -16,6 +16,56 @@ from react_agent.tools import TOOLS
 from react_agent.utils import load_chat_model
 
 # Define the function that calls the model
+
+
+def _collect_recent_tool_observations(messages: List[BaseMessage]) -> List[str]:
+    observations: List[str] = []
+    for message in reversed(messages):
+        if isinstance(message, AIMessage):
+            break
+        if isinstance(message, ToolMessage):
+            observations.append(str(message.content))
+    observations.reverse()
+    return observations
+
+
+def _format_tool_calls(tool_calls: Optional[List[dict]]) -> str:
+    if not tool_calls:
+        return "none"
+    rendered = []
+    for call in tool_calls:
+        name = call.get("name", "unknown")
+        args = call.get("args", {})
+        if isinstance(args, dict) and args:
+            rendered.append(f"tool:{name} {args}")
+        else:
+            rendered.append(f"tool:{name}")
+    return " | ".join(rendered)
+
+
+def _ensure_structured_response(
+    response: AIMessage, state_messages: List[BaseMessage]
+) -> AIMessage:
+    content = response.content if isinstance(response.content, str) else ""
+    if "Thinking:" in content and "Action:" in content and "Observation:" in content and "Response:" in content:
+        return response
+
+    has_tool_calls = bool(response.tool_calls)
+    observations = _collect_recent_tool_observations(state_messages)
+    thinking = "Thinking:\n- Next step: " + (
+        "call tool(s)" if has_tool_calls else "respond to the user"
+    )
+    action = "Action:\n- " + _format_tool_calls(response.tool_calls)
+    if has_tool_calls:
+        observation = "Observation:\n- pending"
+        response_body = "Response:\n- Calling tool(s)."
+    else:
+        observation = "Observation:\n- " + (
+            "; ".join(observations) if observations else "none"
+        )
+        response_body = f"Response:\n{content}" if content else "Response:\n- Done."
+    response.content = "\n".join([thinking, action, observation, response_body])
+    return response
 
 
 async def call_model(state: State) -> Dict[str, List[AIMessage]]:
@@ -47,6 +97,8 @@ async def call_model(state: State) -> Dict[str, List[AIMessage]]:
             [{"role": "system", "content": system_message}, *state.messages]
         ),
     )
+
+    response = _ensure_structured_response(response, list(state.messages))
 
     # Handle the case when it's the last step and the model still wants to use a tool
     if state.is_last_step and response.tool_calls:
