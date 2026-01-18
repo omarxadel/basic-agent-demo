@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, cast
 from langchain_tavily import TavilySearch  # type: ignore[import-not-found]
 
 from react_agent.configuration import Configuration
+from react_agent.hibob_tools import HIBOB_TOOLS
 
 
 # async def search(query: str) -> Optional[dict[str, Any]]:
@@ -636,5 +637,17 @@ def calculator(expression: str) -> float:
     """
     return eval(expression)
 
-TOOLS: List[Callable[..., Any]] = [parse_invoice_data, validate_invoice_data, detect_duplicate_invoice, cross_reference_po, compute_invoice_totals, get_people_directory, 
-                                   calculator, query_unpaid_invoices, send_notification_email, update_invoice_payment_status, get_invoice_payment_status]
+TOOLS: List[Callable[..., Any]] = [
+    parse_invoice_data,
+    validate_invoice_data,
+    detect_duplicate_invoice,
+    cross_reference_po,
+    compute_invoice_totals,
+    get_people_directory,
+    calculator,
+    query_unpaid_invoices,
+    send_notification_email,
+    update_invoice_payment_status,
+    get_invoice_payment_status,
+    *HIBOB_TOOLS,
+]
